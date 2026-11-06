@@ -20,6 +20,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
     MONGO_URI: "mongodb://${MONGO_APP_USER}:${MONGO_APP_PASSWORD}@mongodb:27017/${MONGO_DB}?authSource=${MONGO_DB}"
     MONGO_DB: "${MONGO_DB}"
+    BANXICO_TOKEN: "${BANXICO_TOKEN:-}"
+    PIPELINE_LOOKBACK_DAYS: "${PIPELINE_LOOKBACK_DAYS:-7}"
   volumes:
     - ./dags:/opt/airflow/dags
     - airflow-logs:/opt/airflow/logs

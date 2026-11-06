@@ -21,3 +21,4 @@ sed -i "s|^MONGO_ROOT_PASSWORD=.*|MONGO_ROOT_PASSWORD=$(openssl rand -hex 16)|" 
 sed -i "s|^MONGO_APP_PASSWORD=.*|MONGO_APP_PASSWORD=$(openssl rand -hex 16)|" .env
 
 echo ".env created. Airflow login: admin / admin (local use only)."
+echo "Next: add your Banxico token to .env (BANXICO_TOKEN=...), see the README."
