@@ -1,0 +1,13 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["utils"]
+
+[tool.pytest.ini_options]
+pythonpath = ["dags"]
+testpaths = ["tests"]
