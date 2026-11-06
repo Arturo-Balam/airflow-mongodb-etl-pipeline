@@ -22,7 +22,7 @@ x-airflow-common: &airflow-common
     MONGO_DB: "${MONGO_DB}"
   volumes:
     - ./dags:/opt/airflow/dags
-    - ./logs:/opt/airflow/logs
+    - airflow-logs:/opt/airflow/logs
   depends_on: &airflow-common-depends-on
     airflow-postgres:
       condition: service_healthy
@@ -82,9 +82,10 @@ services:
     command:
       - -c
       - |
+        set -e
         mkdir -p /opt/airflow/logs
+        /entrypoint airflow version
         chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/logs
-        exec /entrypoint airflow version
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: "true"
@@ -151,3 +152,4 @@ services:
 volumes:
   airflow-postgres-data:
   mongo-data:
+  airflow-logs:
