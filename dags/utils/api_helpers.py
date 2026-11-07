@@ -105,6 +105,7 @@ def store_raw(
     return {
         "source": source,
         "collection": collection,
+        "raw_id": document["_id"],
         "record_count": record_count,
         "window": window.as_dict(),
     }

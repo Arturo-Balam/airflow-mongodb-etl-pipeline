@@ -4,7 +4,7 @@ Batch ETL pipeline orchestrated with Apache Airflow. It ingests data from three 
 
 Theme: a small Mexico monitor with the daily weather in Merida, the USD/MXN exchange rate and recent earthquakes.
 
-Status: work in progress. Ingestion is done, the transformations, the load step and the dashboard are being built step by step (see the checklist at the bottom).
+Status: work in progress. Ingestion, transformations and the load step are done, the dashboard is being built next (see the checklist at the bottom).
 
 ## Services
 
@@ -72,14 +72,51 @@ docker compose exec mongodb bash -c 'mongosh -u "$MONGO_APP_USER" -p "$MONGO_APP
 
 Replace `raw_fx` with `raw_weather` or `raw_earthquakes` for the other sources.
 
-## How ingestion works
+## How the pipeline works
 
-- One Airflow task per API (`ingest_weather`, `ingest_fx`, `ingest_earthquakes`), each with 2 retries.
+`main_pipeline` has 7 tasks: three ingestion tasks run in parallel, each one feeds its own transform task, and a final load task waits for all three transforms.
+
+```
+ingest_weather     >> transform_weather     \
+ingest_fx          >> transform_fx           >> load
+ingest_earthquakes >> transform_earthquakes /
+```
+
+**Ingestion**
 - Each run fetches the day it covers plus the 6 days before it (`PIPELINE_LOOKBACK_DAYS` in `.env`, default 7). The overlap picks up late or revised data.
 - The response is saved untouched inside a wrapper document in `raw_<source>`: source, fetch time, window, request parameters, record count and the original payload.
 - The document `_id` is built from the source and the window, so re-running a day replaces its document instead of adding a duplicate (idempotent).
-- Each task returns a small summary (source, collection, record count, window) through XCom, so the next tasks know what was loaded without passing the data itself.
 - The Banxico token travels in a request header, never in the URL, the logs or the stored request.
+
+**Transformation** (reusable logic in `dags/utils/transform_helpers.py`)
+- Standardization: snake_case names with units in the name, ISO 8601 dates and timestamps, Celsius, millimetres and km/h (other units are converted, unknown units fail the task), percentages as decimals.
+- Cleaning: records missing a critical field are dropped, impossible values (for example a 95 C air temperature or an invalid date) are dropped as corrupted, duplicates are removed keeping the freshest. Non critical gaps are imputed and counted.
+- Enrichment: at least two derived fields per dataset (see the data model).
+- Each processed document uses a natural key as `_id` (a date, or the USGS event id), so overlapping windows overwrite the same documents instead of duplicating them. The first day of each exchange rate window takes its previous rate from MongoDB, so its daily change is never lost.
+
+**Load**
+- Builds `processed_daily_overview`, one document per date joining the three sources.
+- Writes one audit document per DAG run to `pipeline_runs`.
+- Creates the indexes if missing and deletes raw documents older than 30 days.
+
+**XCom**: every task passes a small summary to the next one, never the data itself. Ingestion returns the raw document id and record count, transform reads the raw document by that id and returns counts of what it kept, dropped and imputed, and load collects the three summaries into the run audit. You can see them in the Airflow UI under each task, XCom tab.
+
+## Data model
+
+| Collection | Key (`_id`) | Main fields |
+|---|---|---|
+| `raw_weather`, `raw_fx`, `raw_earthquakes` | `<source>:<window start>:<window end>` | `source`, `fetched_at`, `window`, `request`, `record_count`, `payload` |
+| `processed_weather` | date | `temp_max_c`, `temp_min_c`, `precipitation_mm`, `wind_speed_max_kmh`, `weather_description`; derived: `temp_mean_c`, `temp_range_c`, `heat_category`, `is_extreme_heat`, `is_rainy_day` |
+| `processed_fx` | date | `usd_mxn_rate`; derived: `usd_mxn_change`, `usd_mxn_change_pct` (decimal), `peso_trend`, `is_large_move` |
+| `processed_earthquakes` | USGS event id | `event_time`, `event_date`, `magnitude`, `latitude`, `longitude`, `depth_km`, `place`; derived: `magnitude_class`, `depth_class`, `distance_to_merida_km`, `is_near_merida`, `is_significant` |
+| `processed_daily_overview` | date | weather, exchange rate and earthquake summary per date (`earthquake_count`, `max_magnitude`, ...) |
+| `pipeline_runs` | DAG run id | `finished_at`, `window`, `tasks` (summary of each task), `overview_rows`, `raw_deleted` |
+
+Look at the processed data:
+
+```bash
+docker compose exec mongodb bash -c 'mongosh -u "$MONGO_APP_USER" -p "$MONGO_APP_PASSWORD" --authenticationDatabase "$MONGO_DB" "$MONGO_DB" --quiet --eval "printjson(db.processed_daily_overview.find().sort({date: -1}).limit(3).toArray())"'
+```
 
 ## Stopping and resetting
 
@@ -98,7 +135,9 @@ If `airflow-init` fails with a permissions error, check that `AIRFLOW_UID` in `.
 dags/
   main_pipeline.py          The DAG
   ingestion_*.py            One module per API (request, record count, raw storage)
-  utils/                    Shared helpers (MongoDB connection and writes, HTTP, run window)
+  transform_*.py            One module per dataset (clean, standardize, enrich)
+  load_mongo.py             Daily overview, run audit, indexes and raw cleanup
+  utils/                    Shared helpers (MongoDB, HTTP and run window, transform helpers)
 streamlit_app/              Dashboard (own Dockerfile)
 docker/                     Airflow image and MongoDB init script
 scripts/init_env.sh         Generates .env
@@ -120,7 +159,7 @@ pytest
 - [x] MongoDB helpers (`dags/utils/mongo_utils.py`) with idempotent upserts
 - [x] Smoke test DAG
 - [x] API ingestion tasks into raw_<source>
-- [ ] Transformations (standardization, cleaning, enrichment) into processed_<source>
-- [ ] Transform and load tasks added to `main_pipeline`
+- [x] Transformations (standardization, cleaning, enrichment) into processed_<source>
+- [x] Transform and load tasks added to `main_pipeline`
 - [ ] Streamlit dashboard with filters and charts
 - [ ] CI workflow, final README (XCom explanation, screenshots)

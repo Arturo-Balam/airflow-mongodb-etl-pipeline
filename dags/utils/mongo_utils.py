@@ -10,6 +10,7 @@ import logging
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Any
 
 from pymongo import MongoClient, ReplaceOne
@@ -59,3 +60,37 @@ def upsert_documents(collection: str, documents: list[dict[str, Any]]) -> int:
         result.matched_count - result.modified_count,
     )
     return len(documents)
+
+
+def get_document(collection: str, doc_id: Any) -> dict[str, Any] | None:
+    """Return one document by _id, or None if it does not exist."""
+    with mongo_db() as db:
+        return db[collection].find_one({"_id": doc_id})
+
+
+def find_documents(
+    collection: str,
+    query: dict[str, Any] | None = None,
+    sort: list[tuple[str, int]] | None = None,
+    limit: int = 0,
+) -> list[dict[str, Any]]:
+    """Return the documents matching a query (all of them when query is None)."""
+    with mongo_db() as db:
+        cursor = db[collection].find(query or {})
+        if sort:
+            cursor = cursor.sort(sort)
+        if limit:
+            cursor = cursor.limit(limit)
+        return list(cursor)
+
+
+def ensure_index(collection: str, keys: list[tuple[str, int]], unique: bool = False) -> str:
+    """Create an index if it does not exist yet (safe to call on every run)."""
+    with mongo_db() as db:
+        return db[collection].create_index(keys, unique=unique)
+
+
+def delete_older_than(collection: str, field: str, cutoff: datetime) -> int:
+    """Delete documents whose date field is before the cutoff. Returns how many were removed."""
+    with mongo_db() as db:
+        return db[collection].delete_many({field: {"$lt": cutoff}}).deleted_count

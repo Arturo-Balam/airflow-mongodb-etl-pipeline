@@ -62,6 +62,7 @@ def test_store_raw_builds_a_deterministic_id_and_returns_a_summary(monkeypatch):
     assert summary == {
         "source": "weather",
         "collection": "raw_weather",
+        "raw_id": "weather:2026-10-30:2026-11-05",
         "record_count": 7,
         "window": {"start": "2026-10-30", "end": "2026-11-05"},
     }
