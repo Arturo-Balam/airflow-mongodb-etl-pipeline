@@ -1,0 +1,2 @@
+# Keep Unix line endings everywhere, so shell scripts also work inside the containers
+* text=auto eol=lf
