@@ -13,6 +13,8 @@ TEMP_MIN_COLOR = "#2e86ab"
 FX_COLOR = "#3d4a52"
 RAIN_COLOR = "#2e86ab"
 QUAKE_COLOR = "#b3452f"
+# Starts at orange, not pale yellow, so small events stay visible on the light map
+QUAKE_SCALE = ["#f4a261", "#e76f51", "#c1121f", "#6a040f"]
 MAGNITUDE_ORDER = ["minor", "light", "moderate", "strong", "major"]
 MAGNITUDE_COLORS = {
     "minor": "#fdd49e",
@@ -79,7 +81,8 @@ def quake_map(quakes: pd.DataFrame) -> go.Figure:
         lon="longitude",
         size="marker_size",
         color="magnitude",
-        color_continuous_scale="YlOrRd",
+        color_continuous_scale=QUAKE_SCALE,
+        opacity=0.85,
         size_max=18,
         zoom=3.2,
         center={"lat": 23.0, "lon": -102.0},
@@ -96,6 +99,7 @@ def quake_map(quakes: pd.DataFrame) -> go.Figure:
         },
         labels={"magnitude": "Magnitude"},
     )
+    fig.update_traces(marker={"sizemin": 6})  # the smallest events stay clickable
     fig.add_trace(
         go.Scattermap(
             lat=[MERIDA[0]],

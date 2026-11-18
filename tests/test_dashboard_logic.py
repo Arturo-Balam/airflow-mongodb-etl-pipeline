@@ -134,6 +134,7 @@ def test_quake_map_plots_every_event_plus_merida():
 
     assert fig.data[0].type == "scattermap"
     assert len(fig.data[0].lat) == len(quakes)
+    assert fig.data[0].marker.sizemin == 6  # small events must stay visible
     assert fig.data[-1].name == "Mérida"
     assert fig.data[-1].lat[0] == charts.MERIDA[0]
 
