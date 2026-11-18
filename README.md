@@ -4,7 +4,7 @@ Batch ETL pipeline orchestrated with Apache Airflow. It ingests data from three 
 
 Theme: a small Mexico monitor with the daily weather in Merida, the USD/MXN exchange rate and recent earthquakes.
 
-Status: work in progress. Ingestion, transformations and the load step are done, the dashboard is being built next (see the checklist at the bottom).
+Status: the pipeline and the dashboard work end to end. CI and the final documentation are the remaining steps (see the checklist at the bottom).
 
 ## Services
 
@@ -118,6 +118,18 @@ Look at the processed data:
 docker compose exec mongodb bash -c 'mongosh -u "$MONGO_APP_USER" -p "$MONGO_APP_PASSWORD" --authenticationDatabase "$MONGO_DB" "$MONGO_DB" --quiet --eval "printjson(db.processed_daily_overview.find().sort({date: -1}).limit(3).toArray())"'
 ```
 
+## Dashboard
+
+Open http://localhost:8501. The dashboard reads the processed collections from MongoDB and keeps a 60 second cache, so it follows the pipeline closely. Use "Reload data" in the sidebar to refresh it right away.
+
+- Filters (sidebar): date range, minimum earthquake magnitude, and an option to show only earthquakes within 1,000 km of Merida.
+- Headline numbers: latest max temperature, latest USD/MXN rate, earthquake count, strongest earthquake and extreme heat days for the selected range.
+- Weather and exchange rate: temperature against the USD/MXN rate (time series with two axes) and daily rainfall (bars).
+- Earthquakes: map sized and colored by magnitude, share by magnitude class (donut), earthquakes per day (bars) and a table of the strongest events.
+- Pipeline health: the latest runs, a chart of the records removed by cleaning in each run, and the document count of every collection.
+
+If the page says there is no data, trigger `main_pipeline` in Airflow first. After pulling new dashboard code, run `docker compose restart streamlit`.
+
 ## Stopping and resetting
 
 ```bash
@@ -138,7 +150,7 @@ dags/
   transform_*.py            One module per dataset (clean, standardize, enrich)
   load_mongo.py             Daily overview, run audit, indexes and raw cleanup
   utils/                    Shared helpers (MongoDB, HTTP and run window, transform helpers)
-streamlit_app/              Dashboard (own Dockerfile)
+streamlit_app/              Dashboard (app.py, queries.py, filters.py, charts.py, own Dockerfile)
 docker/                     Airflow image and MongoDB init script
 scripts/init_env.sh         Generates .env
 tests/                      Unit tests (pytest)
@@ -161,5 +173,5 @@ pytest
 - [x] API ingestion tasks into raw_<source>
 - [x] Transformations (standardization, cleaning, enrichment) into processed_<source>
 - [x] Transform and load tasks added to `main_pipeline`
-- [ ] Streamlit dashboard with filters and charts
+- [x] Streamlit dashboard with filters and charts
 - [ ] CI workflow, final README (XCom explanation, screenshots)

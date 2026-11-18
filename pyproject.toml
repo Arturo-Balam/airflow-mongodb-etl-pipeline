@@ -9,5 +9,5 @@ select = ["E", "F", "I", "B"]
 known-first-party = ["utils"]
 
 [tool.pytest.ini_options]
-pythonpath = ["dags"]
+pythonpath = ["dags", "streamlit_app"]
 testpaths = ["tests"]
