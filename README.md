@@ -174,4 +174,3 @@ pytest
 - [x] Transformations (standardization, cleaning, enrichment) into processed_<source>
 - [x] Transform and load tasks added to `main_pipeline`
 - [x] Streamlit dashboard with filters and charts
-- [ ] CI workflow, final README (XCom explanation, screenshots)
